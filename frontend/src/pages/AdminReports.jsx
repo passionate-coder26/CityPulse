@@ -56,6 +56,7 @@ export default function AdminReports() {
 
   const resolutionRate =
     totalIssues > 0 ? Math.round((resolvedCount / totalIssues) * 100) : 0;
+    
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -120,11 +121,10 @@ export default function AdminReports() {
           <button
             onClick={generateAIReport}
             disabled={generating}
-            className={`px-4 py-2 rounded-md text-sm text-white transition-all ${
-              generating
+            className={`px-4 py-2 rounded-md text-sm text-white transition-all ${generating
                 ? "bg-gray-400"
                 : "bg-purple-600 hover:bg-purple-700 shadow-md"
-            }`}
+              }`}
           >
             {generating ? "🤖 Analyzing..." : "✨ Generate AI Insights"}
           </button>
@@ -193,125 +193,123 @@ export default function AdminReports() {
           </div>
         )}
 
-        {/* CHARTS */}
-        <div className="grid grid-cols-2 gap-5 mt-6">
-          {/* Chart 1 */}
-          <div className="bg-white border rounded-xl p-5">
-            <h3 className="font-semibold text-sm mb-4">
-              Live Severity Distribution
-            </h3>
-            <div className="flex items-end justify-between h-40 px-8 space-x-6 border-b pb-1">
-              <div className="flex flex-col items-center w-full">
-                <div
-                  className="w-full bg-red-400 rounded-t-md relative hover:opacity-80 transition"
-                  style={{ height: "65%" }}
-                >
-                  <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-red-500">
-                    High
-                  </span>
-                </div>
-              </div>
+        {/* Chart 1 */}
+        <div className="bg-white border rounded-xl p-5">
+          <h3 className="font-semibold text-sm mb-4">
+            Live Severity Distribution
+          </h3>
 
-              <div className="flex flex-col items-center w-full">
-                <div
-                  className="w-full bg-orange-400 rounded-t-md relative hover:opacity-80 transition"
-                  style={{ height: "40%" }}
-                >
-                  <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-orange-500">
-                    Med
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-center w-full">
-                <div
-                  className="w-full bg-blue-400 rounded-t-md relative hover:opacity-80 transition"
-                  style={{ height: "80%" }}
-                >
-                  <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-blue-500">
-                    Low
-                  </span>
-                </div>
+          <div className="flex items-end justify-between h-40 px-8 space-x-6 border-b pb-1">
+            <div className="flex flex-col justify-end items-center w-full h-full">
+              <div
+                className="w-full bg-red-400 rounded-t-md relative hover:opacity-80 transition"
+                style={{ height: "65%" }}
+              >
+                <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-red-500">
+                  High
+                </span>
               </div>
             </div>
-          </div>
 
-          {/* Chart 2 */}
-          <div className="bg-white border rounded-xl p-5">
-            <h3 className="font-semibold text-sm mb-4">Top Issue Categories</h3>
-            <div className="space-y-5 mt-4">
-              <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span>Potholes</span>
-                  <span className="font-bold">45%</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2.5">
-                  <div
-                    className="bg-blue-600 h-2.5 rounded-full"
-                    style={{ width: "45%" }}
-                  ></div>
-                </div>
+            <div className="flex flex-col justify-end items-center w-full h-full">
+              <div
+                className="w-full bg-orange-400 rounded-t-md relative hover:opacity-80 transition"
+                style={{ height: "40%" }}
+              >
+                <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-orange-500">
+                  Med
+                </span>
               </div>
+            </div>
 
-              <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span>Garbage</span>
-                  <span className="font-bold">30%</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2.5">
-                  <div
-                    className="bg-purple-500 h-2.5 rounded-full"
-                    style={{ width: "30%" }}
-                  ></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span>Water Logging</span>
-                  <span className="font-bold">25%</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2.5">
-                  <div
-                    className="bg-teal-400 h-2.5 rounded-full"
-                    style={{ width: "25%" }}
-                  ></div>
-                </div>
+            <div className="flex flex-col justify-end items-center w-full h-full">
+              <div
+                className="w-full bg-blue-400 rounded-t-md relative hover:opacity-80 transition"
+                style={{ height: "80%" }}
+              >
+                <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-blue-500">
+                  Low
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ZONE TABLE */}
-        <div className="bg-white border rounded-xl p-5 mt-6">
-          <h3 className="font-semibold text-sm mb-3">Zone-wise Performance</h3>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left py-2">Zone</th>
-                <th className="text-left">Issues</th>
-                <th className="text-left">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b">
-                <td className="py-2">Downtown</td>
-                <td>12</td>
-                <td className="text-red-500 font-semibold">Critical</td>
-              </tr>
-              <tr className="border-b">
-                <td className="py-2">North Quarter</td>
-                <td>8</td>
-                <td className="text-orange-500">High</td>
-              </tr>
-              <tr>
-                <td className="py-2">West Side</td>
-                <td>5</td>
-                <td className="text-yellow-600">Moderate</td>
-              </tr>
-            </tbody>
-          </table>
+        {/* Chart 2 */}
+        <div className="bg-white border rounded-xl p-5">
+          <h3 className="font-semibold text-sm mb-4">Top Issue Categories</h3>
+          <div className="space-y-5 mt-4">
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span>Potholes</span>
+                <span className="font-bold">45%</span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2.5">
+                <div
+                  className="bg-blue-600 h-2.5 rounded-full"
+                  style={{ width: "45%" }}
+                ></div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span>Garbage</span>
+                <span className="font-bold">30%</span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2.5">
+                <div
+                  className="bg-purple-500 h-2.5 rounded-full"
+                  style={{ width: "30%" }}
+                ></div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span>Water Logging</span>
+                <span className="font-bold">25%</span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2.5">
+                <div
+                  className="bg-teal-400 h-2.5 rounded-full"
+                  style={{ width: "25%" }}
+                ></div>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* ZONE TABLE */}
+      <div className="bg-white border rounded-xl p-5 mt-6">
+        <h3 className="font-semibold text-sm mb-3">Zone-wise Performance</h3>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left py-2">Zone</th>
+              <th className="text-left">Issues</th>
+              <th className="text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b">
+              <td className="py-2">Downtown</td>
+              <td>12</td>
+              <td className="text-red-500 font-semibold">Critical</td>
+            </tr>
+            <tr className="border-b">
+              <td className="py-2">North Quarter</td>
+              <td>8</td>
+              <td className="text-orange-500">High</td>
+            </tr>
+            <tr>
+              <td className="py-2">West Side</td>
+              <td>5</td>
+              <td className="text-yellow-600">Moderate</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
