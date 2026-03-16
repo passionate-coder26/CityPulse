@@ -6,7 +6,7 @@ const fs = require('fs');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -52,7 +52,7 @@ app.get('/api/detections', (req, res) => {
     res.json(data);
 });
 
-// 2. POST: Receive Live Data from Python (Renamed to match Python script)
+// 2. POST: Receive Live Data from Python 
 app.post('/api/detections', (req, res) => {
     const newData = {
         ...req.body,
