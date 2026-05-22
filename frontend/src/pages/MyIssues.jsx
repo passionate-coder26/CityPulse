@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 
-const API_BASE = "https://citysenseai.onrender.com";
+const API_BASE = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? "http://localhost:5000" : "https://citysenseai.onrender.com";
 
 export default function MyIssues() {
 
@@ -45,13 +45,28 @@ export default function MyIssues() {
             color = "bg-yellow-100 text-yellow-700";
           }
 
+          // CONFIRMATION LEVEL MAPPING
+          let confirmation = "Possible";
+          let confColor = "bg-yellow-100 text-yellow-700 border-yellow-200";
+          const count = d.detection_count || 1;
+          if (count >= 5) {
+            confirmation = "Verified / Action Taken";
+            confColor = "bg-green-100 text-green-700 border-green-200";
+          } else if (count >= 2) {
+            confirmation = "Confirmed";
+            confColor = "bg-blue-100 text-blue-700 border-blue-200";
+          }
+
           return {
             title: d.type || "Reported Issue",
-            desc: `Detected at Lat: ${d.lat}, Lng: ${d.lng}`,
-            date: new Date(d.timestamp).toLocaleDateString(),
+            desc: `Detected at Lat: ${parseFloat(d.lat).toFixed(4)}, Lng: ${parseFloat(d.lng).toFixed(4)}`,
+            date: new Date(d.timestamp).toLocaleString(),
             status,
             risk,
-            color
+            color,
+            confirmation,
+            confColor,
+            count
           };
 
         });
@@ -235,7 +250,7 @@ export default function MyIssues() {
 
               {!loading && filteredIssues.length > 0 ? (
 
-                filteredIssues.map((issue, index) => (
+                 filteredIssues.map((issue, index) => (
 
                   <div
                     key={index}
@@ -252,7 +267,13 @@ export default function MyIssues() {
                         {issue.desc}
                       </p>
 
-                      <p className="text-xs text-gray-500 mt-1">
+                      <div className="flex gap-2 items-center mt-2">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${issue.confColor}`}>
+                          Sighting: {issue.confirmation} ({issue.count} {issue.count === 1 ? 'report' : 'reports'})
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-gray-500 mt-2">
                         Submitted: {issue.date}
                       </p>
 

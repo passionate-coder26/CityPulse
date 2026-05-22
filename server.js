@@ -1,8 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
-const fs = require('fs'); 
+const mongoose = require('mongoose');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
@@ -13,111 +12,163 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 app.use(cors());
-app.use(express.json()); 
+app.use(express.json({ limit: '10mb' })); 
 
-// Ensure the data directory exists
-const DATA_DIR = path.join(__dirname, 'public/data');
-if (!fs.existsSync(DATA_DIR)){
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-const DATA_FILE = path.join(DATA_DIR, 'mock_detections.json');
+// ================= 1. MONGODB CONNECTION =================
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("☁️ Connected to MongoDB Atlas Cloud Database!"))
+  .catch(err => console.error("MongoDB Connection Error:", err));
 
-// Helper: Read Data safely
-const readData = () => {
-    try {
-        if (!fs.existsSync(DATA_FILE)) return [];
-        const data = fs.readFileSync(DATA_FILE, 'utf8');
-        return JSON.parse(data);
-    } catch (e) {
-        console.error("Error reading data:", e.message);
-        return [];
-    }
-};
-
-// Helper: Write Data safely
-const writeData = (data) => {
-    try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-    } catch (e) {
-        console.error("Error writing data:", e.message);
-    }
-};
-
-
-// ================= API ROUTES =================
-
-// 1. GET: Fetch All Detections
-app.get('/api/detections', (req, res) => {
-    const data = readData();
-    res.json(data);
+// ================= 2. DATABASE SCHEMA =================
+const detectionSchema = new mongoose.Schema({
+    type: String,
+    severity: String,
+    lat: Number,
+    lng: Number,
+    status: { type: String, default: 'Open' },
+    detection_count: { type: Number, default: 1 },
+    timestamp: { type: Date, default: Date.now },
+    image_url: String,
+    confidence: Number
 });
 
-// 2. POST: Receive Live Data from Python 
-app.post('/api/detections', (req, res) => {
-    const newData = {
-        ...req.body,
-        id: req.body.id || Date.now(), // Ensure ID exists
-        status: 'Open',                // Default status
-        timestamp: req.body.client_timestamp || new Date().toISOString()
-    };
-    
-    console.log(`📸 Received: ${newData.type} (${newData.severity})`);
-
-    const currentData = readData();
-    
-    // Add new detection to the top
-    currentData.unshift(newData);
-
-    // Keep file size small (last 50 items)
-    if (currentData.length > 50) currentData.splice(50);
-
-    writeData(currentData);
-    res.json({ success: true, id: newData.id });
+// VERY IMPORTANT FOR REACT: MongoDB uses '_id', but your React app looks for 'id'. 
+// This cleanly maps the database ID to match what your frontend expects.
+detectionSchema.set('toJSON', {
+    virtuals: true,
+    transform: (doc, ret) => {
+        ret.id = ret._id;
+        delete ret._id;
+        delete ret.__v;
+    }
 });
 
-// 3. PATCH: Mark Issue as Resolved (THE NEW FEATURE)
-app.patch('/api/detections/:id/resolve', (req, res) => {
+const Detection = mongoose.model('Detection', detectionSchema);
+
+// Helper: Haversine distance formula (returns distance in meters)
+const getDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371000; 
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
+
+// ================= 3. API ROUTES =================
+
+// GET: Fetch All Detections
+app.get('/api/detections', async (req, res) => {
+    try {
+        // Fetch from MongoDB, sort newest first, limit to keep map fast
+        const data = await Detection.find().sort({ timestamp: -1 }).limit(100);
+        res.json(data);
+    } catch (err) {
+        console.error("Fetch error:", err);
+        res.status(500).json({ error: "Failed to fetch from Database" });
+    }
+});
+
+// POST: Receive Live Data from Python (Intelligent Clustering)
+app.post('/api/detections', async (req, res) => {
+    const { type, lat, lng, severity, image_url, client_timestamp, confidence } = req.body;
+    const detectionTime = client_timestamp || new Date();
+    
+    console.log(`📸 Received: ${type} (${severity}) at lat: ${lat}, lng: ${lng}`);
+
+    try {
+        // Find active issues for clustering
+        const activeIssues = await Detection.find({ status: { $ne: 'Resolved' } });
+        
+        let clusteredIssue = null;
+        if (lat && lng) {
+            clusteredIssue = activeIssues.find(d => 
+                d.type.toLowerCase() === type.toLowerCase() && 
+                getDistance(d.lat, d.lng, parseFloat(lat), parseFloat(lng)) <= 10
+            );
+        }
+
+        if (clusteredIssue) {
+            let newCount = (clusteredIssue.detection_count || 1) + 1;
+            let newSeverity = clusteredIssue.severity;
+            
+            // Dynamic Severity Upgrades
+            if (newCount >= 10) newSeverity = 'Critical';
+            else if (newCount >= 3) newSeverity = 'High';
+
+            // Update in MongoDB
+            await Detection.findByIdAndUpdate(clusteredIssue._id, {
+                detection_count: newCount,
+                severity: newSeverity,
+                timestamp: detectionTime,
+                image_url: image_url || clusteredIssue.image_url
+            });
+            
+            console.log(`♻️ [Clustered DB] Incremented sightings for ${type} to ${newCount}. New Severity: ${newSeverity}`);
+            res.json({ success: true, id: clusteredIssue._id, clustered: true });
+
+        } else {
+            // Create brand new record in MongoDB
+            const newIssue = new Detection({
+                type,
+                severity: severity || 'Medium',
+                lat: parseFloat(lat),
+                lng: parseFloat(lng),
+                status: 'Open',
+                detection_count: 1,
+                timestamp: detectionTime,
+                image_url: image_url || 'https://via.placeholder.com/150?text=Live+Detection',
+                confidence: confidence || 1.0
+            });
+
+            const savedIssue = await newIssue.save();
+            console.log(`🆕 [New Issue DB] Created ${newIssue.type} with severity ${newIssue.severity}`);
+            res.json({ success: true, id: savedIssue._id, clustered: false });
+        }
+    } catch (err) {
+        console.error("DB Write Error:", err);
+        res.status(500).json({ error: "Failed to write to Database" });
+    }
+});
+
+// PATCH: Mark Issue as Resolved
+app.patch('/api/detections/:id/resolve', async (req, res) => {
     const { id } = req.params;
-    let currentData = readData();
-
-    // Find and Update
-    const issueIndex = currentData.findIndex(d => d.id == id); // '==' matches string vs number IDs
     
-    if (issueIndex !== -1) {
-        currentData[issueIndex].status = 'Resolved';
-        currentData[issueIndex].severity = 'Low'; // Downgrade severity
+    try {
+        await Detection.findByIdAndUpdate(id, { 
+            status: 'Resolved', 
+            severity: 'Low' 
+        });
         
-        writeData(currentData); // Save to file
-        
-        console.log(`✅ Issue ${id} marked as RESOLVED.`);
-        res.json({ success: true, issue: currentData[issueIndex] });
-    } else {
-        res.status(404).json({ error: "Issue not found" });
+        console.log(`✅ Issue ${id} marked as RESOLVED in Database.`);
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Resolve Error:", err);
+        res.status(500).json({ error: "Failed to resolve issue" });
     }
 });
 
-// 4. POST: Generate Gemini Report
+// POST: Generate Gemini Report
 app.post('/api/generate-report', async (req, res) => {
-    const { detections } = req.body;
-    console.log("🤖 Generating report for", detections ? detections.length : 0, "issues...");
-
     try {
-        // Filter only active issues for the report
-        const activeIssues = detections.filter(d => d.status !== 'Resolved');
+        // Fetch only active issues for the AI to analyze
+        const activeIssues = await Detection.find({ status: { $ne: 'Resolved' } }).limit(15);
+        
+        console.log("🤖 Generating report for", activeIssues.length, "active issues...");
 
         const prompt = `
             Act as a Senior City Engineer. 
-            Analyze this raw detection data of active city issues: ${JSON.stringify(activeIssues.slice(0, 15))}.
+            Analyze this raw detection data of active city issues: ${JSON.stringify(activeIssues)}.
             1. Identify the most critical risk area based on coordinates and severity.
             2. Write a 3-bullet action plan for the maintenance team.
             3. Keep it professional and urgent.
         `;
 
         const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-        
-        res.json({ report: text });
+        res.json({ report: result.response.text() });
     } catch (error) {
         console.error("Gemini Error:", error);
         res.status(500).json({ error: "AI Service Unavailable" });
@@ -125,6 +176,5 @@ app.post('/api/generate-report', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 CitySense Backend running at http://localhost:${PORT}`);
-    console.log(`📂 Data File: ${DATA_FILE}`);
+    console.log(`🚀 CitySense Backend running on port ${PORT}`);
 });

@@ -1,7 +1,29 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
-const API_BASE = "https://citysenseai.onrender.com";
+const API_BASE = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? "http://localhost:5000" : "https://citysenseai.onrender.com";
+
+const getSLADetails = (detection) => {
+  if (detection.status === "Resolved") return { breached: false, text: "Resolved" };
+  
+  const now = new Date();
+  const created = new Date(detection.timestamp);
+  const diffHours = (now - created) / (1000 * 60 * 60);
+
+  let limit = 72; // default Low
+  if (detection.severity === "Critical") limit = 12;
+  else if (detection.severity === "High") limit = 24;
+  else if (detection.severity === "Medium") limit = 48;
+
+  const breached = diffHours > limit;
+  const remaining = Math.max(0, Math.round(limit - diffHours));
+
+  if (breached) {
+    return { breached: true, text: "SLA BREACHED", hoursOver: Math.round(diffHours - limit) };
+  } else {
+    return { breached: false, text: `⏳ ${remaining}h left`, remaining };
+  }
+};
 
 export default function AdminIssues() {
   const [detections, setDetections] = useState([]);
@@ -175,30 +197,62 @@ export default function AdminIssues() {
                 key={d.id || index}
                 className="bg-white border rounded-xl p-5 flex justify-between items-center shadow-sm hover:shadow-md transition"
               >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-sm capitalize">{d.type}</p>
-                    <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded border">
-                      ID: {d.id ? String(d.id).substring(0, 8) : index}
-                    </span>
-                  </div>
-
-                  <p className="text-gray-600 text-xs mt-1">
-                    Detected at {new Date(d.timestamp).toLocaleString()}
-                  </p>
-                  <p className="text-gray-500 text-xs">
-                    Lat: {d.lat}, Lng: {d.lng}
-                  </p>
-
-                  <div className="flex gap-2 mt-2">
-                    <span className="text-xs border rounded px-2 py-1 bg-blue-50 text-blue-600">
-                      AI Verified
-                    </span>
-                    {d.status === "Resolved" && (
-                      <span className="text-xs border rounded px-2 py-1 bg-green-50 text-green-600">
-                        Resolved
+                <div className="flex gap-4 items-start">
+                  {d.image_url && (
+                    <img
+                      src={d.image_url}
+                      alt={d.type}
+                      className="w-20 h-20 object-cover rounded-lg border shadow-sm hover:scale-105 transition duration-200"
+                      onError={(e) => { e.target.src = "https://via.placeholder.com/150?text=No+Img"; }}
+                    />
+                  )}
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-sm capitalize">{d.type}</p>
+                      <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded border text-gray-500 font-mono">
+                        ID: {d.id ? String(d.id).substring(0, 8) : index}
                       </span>
-                    )}
+                      
+                      {/* SLA Countdown / Breach Badge */}
+                      {(() => {
+                        const sla = getSLADetails(d);
+                        if (d.status !== "Resolved") {
+                          return sla.breached ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-600 border border-red-200 shadow-[0_0_8px_rgba(239,68,68,0.4)] animate-pulse flex items-center gap-1">
+                              🚨 SLA BREACHED (+{sla.hoursOver}h)
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1">
+                              {sla.text}
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
+
+                      {/* Sightings Badge */}
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-50 text-purple-600 border border-purple-100 flex items-center gap-1">
+                        👁️ {d.detection_count || 1} sightings
+                      </span>
+                    </div>
+
+                    <p className="text-gray-600 text-xs mt-1">
+                      Detected at {new Date(d.timestamp).toLocaleString()}
+                    </p>
+                    <p className="text-gray-500 text-xs">
+                      Lat: {d.lat}, Lng: {d.lng}
+                    </p>
+
+                    <div className="flex gap-2 mt-2">
+                      <span className="text-xs border rounded px-2 py-0.5 bg-blue-50 text-blue-600 font-medium">
+                        AI Verified
+                      </span>
+                      {d.status === "Resolved" && (
+                        <span className="text-xs border rounded px-2 py-0.5 bg-green-50 text-green-600 font-medium">
+                          Resolved
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

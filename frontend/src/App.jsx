@@ -5,11 +5,12 @@ import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminIssues from "./pages/AdminIssues";
 import AdminReports from "./pages/AdminReports";
+import CitizenScanner from "./pages/CitizenScanner";
 
 export default function App() {
   return (
     <Routes>
-      
+
       {/* LANDING PAGE (Home /) */}
       <Route
         path="/"
@@ -55,9 +56,9 @@ export default function App() {
                 </h2>
 
                 <p className="mt-4 max-w-xl text-gray-700 text-lg md:text-xl leading-relaxed tracking-wide">
-                  <span className="font-semibold text-gray-900">CitySense AI</span> scans urban environments using 
-                  <span className="font-semibold text-blue-600"> smart sensors</span> and 
-                  <span className="font-semibold text-blue-600"> AI vision</span> to detect hidden, unreported, and early-stage 
+                  <span className="font-semibold text-gray-900">CitySense AI</span> scans urban environments using
+                  <span className="font-semibold text-blue-600"> smart sensors</span> and
+                  <span className="font-semibold text-blue-600"> AI vision</span> to detect hidden, unreported, and early-stage
                   civic issues <span className="font-semibold text-gray-900">before they escalate.</span>
                 </p>
 
@@ -65,6 +66,12 @@ export default function App() {
                   <Link to="/admin">
                     <button className="bg-blue-600 text-white px-5 py-2 rounded-lg">
                       Admin Portal
+                    </button>
+                  </Link>
+
+                  <Link to="/scanner">
+                    <button className="bg-purple-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-purple-700 transition flex items-center gap-2">
+                      <span>👁️</span> Try AR Scanner
                     </button>
                   </Link>
 
@@ -144,7 +151,8 @@ export default function App() {
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/admin/issues" element={<AdminIssues />} />
       <Route path="/admin/reports" element={<AdminReports />} />
-      
+      <Route path="/scanner" element={<CitizenScanner />} />
+
     </Routes>
   );
 }

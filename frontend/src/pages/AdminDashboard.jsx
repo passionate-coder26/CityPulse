@@ -1,9 +1,32 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 
-const API_BASE = "https://citysenseai.onrender.com";
+const API_BASE = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? "http://localhost:5000" : "https://citysenseai.onrender.com";
+
+const getSLADetails = (detection) => {
+  if (detection.status === "Resolved") return { breached: false, text: "Resolved" };
+
+  const now = new Date();
+  const created = new Date(detection.timestamp);
+  const diffHours = (now - created) / (1000 * 60 * 60);
+
+  let limit = 72; // default Low
+  if (detection.severity === "Critical") limit = 12;
+  else if (detection.severity === "High") limit = 24;
+  else if (detection.severity === "Medium") limit = 48;
+
+  const breached = diffHours > limit;
+  const remaining = Math.max(0, Math.round(limit - diffHours));
+
+  if (breached) {
+    return { breached: true, text: "SLA BREACHED", hoursOver: Math.round(diffHours - limit) };
+  } else {
+    return { breached: false, text: `⏳ ${remaining}h left`, remaining };
+  }
+};
 
 export default function AdminDashboard() {
+  const [previewImage, setPreviewImage] = useState(null);
   // ================= CLOCK =================
   const [time, setTime] = useState(new Date().toLocaleTimeString());
   useEffect(() => {
@@ -19,7 +42,7 @@ export default function AdminDashboard() {
     "[System] Connected to Backend API...",
   ]);
   const logRef = useRef(null);
-  const lastSpoken = useRef(0);
+  const lastSpokenId = useRef(null);
 
   // ================= REAL BACKEND DATA STATE =================
   const [detections, setDetections] = useState([]);
@@ -27,6 +50,15 @@ export default function AdminDashboard() {
 
   // NEW: FILTER STATE
   const [filter, setFilter] = useState("All"); // "All", "Critical", "Resolved"
+
+  // ================= FEED SWITCHER STATE =================
+  const feedOptions = [
+    { id: "p1", name: "Patrol Unit #21 (road_patrol)", src: "http://localhost:5001/video_feed/pothole_1" },
+    { id: "p2", name: "Patrol Unit #42 (pothole_2)", src: "http://localhost:5001/video_feed/pothole_2" },
+    { id: "g1", name: "Sanitation Unit #01 (garbage_1)", src: "http://localhost:5001/video_feed/garbage_1" },
+    { id: "g2", name: "Sanitation Unit #07 (garbage_2)", src: "http://localhost:5001/video_feed/garbage_2" }
+  ];
+  const [activeFeed, setActiveFeed] = useState(feedOptions[0]);
 
   // MAP REFS
   const mapRef = useRef(null);
@@ -55,9 +87,9 @@ export default function AdminDashboard() {
           if (
             (latest.severity === "High" || latest.severity === "Critical") &&
             latest.status !== "Resolved" &&
-            now - lastSpoken.current > 5000
+            lastSpokenId.current !== latest.id // ONLY speak if it's a new issue!
           ) {
-            lastSpoken.current = now;
+            lastSpokenId.current = latest.id; // Memorize this issue ID
             window.speechSynthesis.cancel();
             const speech = new SpeechSynthesisUtterance(
               `Alert. ${latest.severity} severity ${latest.type} detected.`
@@ -267,27 +299,24 @@ export default function AdminDashboard() {
             <div className="flex bg-white rounded-lg border shadow-sm overflow-hidden">
               <button
                 onClick={() => setFilter("All")}
-                className={`px-3 py-2 text-sm ${
-                  filter === "All" ? "bg-gray-100 font-bold" : "hover:bg-gray-50"
-                }`}
+                className={`px-3 py-2 text-sm ${filter === "All" ? "bg-gray-100 font-bold" : "hover:bg-gray-50"
+                  }`}
               >
                 All
               </button>
               <button
                 onClick={() => setFilter("Critical")}
-                className={`px-3 py-2 text-sm text-red-600 border-l ${
-                  filter === "Critical" ? "bg-red-50 font-bold" : "hover:bg-red-50"
-                }`}
+                className={`px-3 py-2 text-sm text-red-600 border-l ${filter === "Critical" ? "bg-red-50 font-bold" : "hover:bg-red-50"
+                  }`}
               >
                 Critical Only
               </button>
               <button
                 onClick={() => setFilter("Resolved")}
-                className={`px-3 py-2 text-sm text-green-600 border-l ${
-                  filter === "Resolved"
-                    ? "bg-green-50 font-bold"
-                    : "hover:bg-green-50"
-                }`}
+                className={`px-3 py-2 text-sm text-green-600 border-l ${filter === "Resolved"
+                  ? "bg-green-50 font-bold"
+                  : "hover:bg-green-50"
+                  }`}
               >
                 Resolved
               </button>
@@ -297,27 +326,51 @@ export default function AdminDashboard() {
 
         {/* ================= LIVE PATROL MODE ================= */}
         <div className="grid grid-cols-2 gap-6 mt-6">
-          {/* VIDEO PANEL */}
-          <div className="bg-black rounded-xl h-[420px] relative overflow-hidden flex items-center justify-center group">
-            <video
-              src="/road_patrol.mp4"
-              autoPlay
-              loop
-              muted
-              className="absolute inset-0 w-full h-full object-cover opacity-80"
-            />
+          {/* REAL AI VIDEO PANEL */}
+          {/* ================= DYNAMIC MULTI-UNIT VIDEO PANEL ================= */}
+          <div className="bg-black rounded-xl h-[420px] relative overflow-hidden flex flex-col group border shadow-sm">
 
-            <div className="absolute top-3 left-3 z-10 text-white font-semibold bg-black/60 px-3 py-1 rounded backdrop-blur-sm border border-white/20">
-              🔴 LIVE FEED — Patrol Unit #21
+            {/* OVERLAY CONTROLS (Badge & Dropdown) */}
+            <div className="absolute top-3 left-3 right-3 z-20 flex justify-between items-start pointer-events-none">
+
+              <div className="text-white text-sm font-semibold bg-black/60 px-3 py-1.5 rounded backdrop-blur-sm border border-white/20 flex items-center gap-2 shadow-lg">
+                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                LIVE FEED
+              </div>
+
+              {/* Feed Switcher Dropdown */}
+              <select
+                className="bg-black/70 text-white text-sm font-medium px-3 py-1.5 rounded backdrop-blur-md border border-white/20 outline-none cursor-pointer hover:bg-black/80 transition pointer-events-auto shadow-lg"
+                value={activeFeed.id}
+                onChange={(e) => {
+                  const selected = feedOptions.find(f => f.id === e.target.value);
+                  setActiveFeed(selected);
+                }}
+              >
+                {feedOptions.map(feed => (
+                  <option key={feed.id} value={feed.id}>
+                    {feed.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {detections.length > 0 && detections[0].status !== "Resolved" && (
-              <div className="absolute border-4 border-red-500 w-40 h-32 left-24 top-24 animate-pulse rounded z-20 shadow-[0_0_20px_rgba(239,68,68,0.6)]">
-                <div className="bg-red-600 text-white text-xs px-2 py-1 absolute -top-6 font-bold tracking-wider">
-                  ⚠️ {detections[0].type.toUpperCase()} DETECTED
-                </div>
+            {/* DYNAMIC MEDIA PLAYER */}
+            <div className="w-full h-full relative flex items-center justify-center bg-gray-900">
+              <img
+                src={activeFeed.src}
+                alt={activeFeed.name}
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+              <div className="hidden absolute inset-0 bg-gray-900 flex-col items-center justify-center text-gray-500">
+                <p className="text-4xl mb-2">📡</p>
+                <p>Waiting for {activeFeed.name} Connection...</p>
               </div>
-            )}
+            </div>
           </div>
 
           {/* MAP PANEL */}
@@ -377,32 +430,63 @@ export default function AdminDashboard() {
                   .map(d => (
                     <li
                       key={d.id}
-                      className={`border-b py-3 flex justify-between items-center ${
-                        d.status === "Resolved" ? "opacity-50" : ""
-                      }`}
+                      className={`border-b py-3 flex justify-between items-center ${d.status === "Resolved" ? "opacity-50" : ""
+                        }`}
                     >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              d.status === "Resolved"
+                      <div className="flex items-center gap-3">
+                        {d.image_url && (
+                          <img
+                            src={d.image_url}
+                            alt={d.type}
+                            className="w-12 h-12 object-cover rounded-lg border shadow-sm hover:scale-105 cursor-pointer transition duration-200"
+                            onClick={() => setPreviewImage(d)}
+                            onError={(e) => { e.target.src = "https://via.placeholder.com/150?text=No+Img"; }}
+                          />
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`w-2 h-2 rounded-full ${d.status === "Resolved"
                                 ? "bg-green-500"
                                 : d.severity === "Critical"
-                                ? "bg-red-600"
-                                : d.severity === "High"
-                                ? "bg-orange-500"
-                                : "bg-yellow-400"
-                            }`}
-                          ></span>
-                          <span className="font-semibold">{d.type}</span>
-                          <span className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">
-                            {d.severity}
-                          </span>
+                                  ? "bg-red-600 animate-pulse"
+                                  : d.severity === "High"
+                                    ? "bg-orange-500"
+                                    : "bg-yellow-400"
+                                }`}
+                            ></span>
+                            <span className="font-semibold capitalize">{d.type}</span>
+                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600 font-medium">
+                              {d.severity}
+                            </span>
+
+                            {/* SLA Alert Badge */}
+                            {(() => {
+                              const sla = getSLADetails(d);
+                              if (d.status !== "Resolved") {
+                                return sla.breached ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-600 border border-red-200 shadow-[0_0_8px_rgba(239,68,68,0.4)] animate-pulse flex items-center gap-1">
+                                    🚨 SLA BREACHED (+{sla.hoursOver}h)
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1">
+                                    {sla.text}
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
+
+                            {/* Sightings/Voting Count Badge */}
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-50 text-purple-600 border border-purple-100 flex items-center gap-1">
+                              👁️ {d.detection_count || 1} sightings
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-gray-400 mt-1">
+                            {new Date(d.timestamp).toLocaleTimeString()} • {parseFloat(d.lat).toFixed(4)}, {parseFloat(d.lng).toFixed(4)}
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {new Date(d.timestamp).toLocaleTimeString()} • {d.lat},{" "}
-                          {d.lng}
-                        </p>
                       </div>
 
                       {d.status !== "Resolved" ? (
@@ -429,6 +513,41 @@ export default function AdminDashboard() {
           </div>
         </div>
       </main>
+
+      {/* ================= PREVIEW IMAGE MODAL (GLASSMORPHIC) ================= */}
+      {previewImage && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-all duration-300">
+          <div className="bg-white/80 border border-white/20 backdrop-blur-xl rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl relative">
+            <div className="p-4 border-b flex justify-between items-center bg-gray-50/50">
+              <h4 className="font-bold text-gray-800 capitalize">{previewImage.type} Sighting</h4>
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="text-gray-500 hover:text-black hover:bg-gray-200 p-1.5 rounded-full transition"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 flex flex-col items-center">
+              <img
+                src={previewImage.image_url}
+                alt={previewImage.type}
+                className="w-full h-64 object-cover rounded-xl shadow-inner border"
+                onError={(e) => { e.target.src = "https://via.placeholder.com/400x250?text=No+Image+Evidence"; }}
+              />
+              <div className="mt-4 w-full text-left space-y-2 text-sm text-gray-600">
+                <p>📍 <b>Coordinates:</b> {previewImage.lat}, {previewImage.lng}</p>
+                <p>⏰ <b>Reported:</b> {new Date(previewImage.timestamp).toLocaleString()}</p>
+                <p>👁️ <b>Total Sightings:</b> {previewImage.detection_count || 1}</p>
+                <p>⚠️ <b>Severity:</b> <span className={`px-2 py-0.5 rounded font-semibold text-xs ${previewImage.severity === 'Critical' ? 'bg-red-100 text-red-700' :
+                  previewImage.severity === 'High' ? 'bg-orange-100 text-orange-700' :
+                    previewImage.severity === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-blue-100 text-blue-700'
+                  }`}>{previewImage.severity}</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
