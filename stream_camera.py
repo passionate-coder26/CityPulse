@@ -7,7 +7,7 @@ import time
 import datetime
 
 # ================= 1. CONFIGURATION =================
-BACKEND_URL = "https://citysenseai.onrender.com/api/detections"
+BACKEND_URL = "http://localhost:5000/api/detections"
 CONFIDENCE_THRESHOLD = 0.65
 
 # Your exact 4 camera streams
