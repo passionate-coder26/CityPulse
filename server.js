@@ -1,4 +1,5 @@
 require('dotenv').config();
+const { spawn } = require('child_process');
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -175,6 +176,17 @@ app.post('/api/generate-report', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`🚀 CitySense Backend running on port ${PORT}`);
+    
+    // Spawn the Python streamer
+    const pythonProcess = spawn('python', ['stream_camera.py']);
+
+    pythonProcess.stdout.on('data', (data) => {
+        console.log(`[Python Streamer]: ${data}`);
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+        console.error(`[Python Streamer Error]: ${data}`);
+    });
 });
