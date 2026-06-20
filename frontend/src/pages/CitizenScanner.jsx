@@ -3,7 +3,7 @@ import Webcam from "react-webcam";
 import * as tf from "@tensorflow/tfjs";
 import { Link } from "react-router-dom";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://citypulse-1-bjum.onrender.com";
 
 export default function CitizenScanner() {
   const webcamRef = useRef(null);

@@ -7,7 +7,7 @@ import time
 import datetime
 
 # ================= 1. CONFIGURATION =================
-BACKEND_URL = "http://localhost:5000/api/detections"
+BACKEND_URL = "https://citypulse-1-bjum.onrender.com/api/detections"
 CONFIDENCE_THRESHOLD = 0.65
 
 # Your exact 4 camera streams

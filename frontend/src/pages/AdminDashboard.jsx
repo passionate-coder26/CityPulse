@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://citypulse-1-bjum.onrender.com";
 
 const getSLADetails = (detection) => {
   if (detection.status === "Resolved") return { breached: false, text: "Resolved" };
@@ -53,11 +53,13 @@ export default function AdminDashboard() {
   const [filter, setFilter] = useState("All"); // "All", "Critical", "Resolved"
 
   // ================= FEED SWITCHER STATE =================
+  const isLocal = window.location.hostname === "localhost";
+
   const feedOptions = [
-    { id: "p1", name: "Patrol Unit #21 (road_patrol)", src: "http://localhost:5001/video_feed/pothole_1" },
-    { id: "p2", name: "Patrol Unit #42 (pothole_2)", src: "http://localhost:5001/video_feed/pothole_2" },
-    { id: "g1", name: "Sanitation Unit #01 (garbage_1)", src: "http://localhost:5001/video_feed/garbage_1" },
-    { id: "g2", name: "Sanitation Unit #07 (garbage_2)", src: "http://localhost:5001/video_feed/garbage_2" }
+    { id: "p1", name: "Patrol Unit #21 (road_patrol)", streamSrc: "http://localhost:5001/video_feed/pothole_1", fallbackSrc: "/road_patrol.mp4" },
+    { id: "p2", name: "Patrol Unit #42 (pothole_2)", streamSrc: "http://localhost:5001/video_feed/pothole_2", fallbackSrc: "/pothole_2.mp4" },
+    { id: "g1", name: "Sanitation Unit #01 (garbage_1)", streamSrc: "http://localhost:5001/video_feed/garbage_1", fallbackSrc: "/garbage_1.mp4" },
+    { id: "g2", name: "Sanitation Unit #07 (garbage_2)", streamSrc: "http://localhost:5001/video_feed/garbage_2", fallbackSrc: "/garbage_2.mp4" }
   ];
   const [activeFeed, setActiveFeed] = useState(feedOptions[0]);
 
@@ -162,7 +164,7 @@ export default function AdminDashboard() {
           { ...approvedIssue, status: "Open" },
           ...prev
         ]);
-        
+
         setLogs(prev => [...prev, `[System] Approved citizen sighting #${id} -> status changed to OPEN.`]);
       }
 
@@ -297,8 +299,8 @@ export default function AdminDashboard() {
             <Link to="/" className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-700 to-sky-500 flex items-center justify-center shadow-sm">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/>
-                  <circle cx="12" cy="10" r="3"/>
+                  <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z" />
+                  <circle cx="12" cy="10" r="3" />
                 </svg>
               </div>
               <span className="font-extrabold text-lg tracking-tight">
@@ -327,7 +329,7 @@ export default function AdminDashboard() {
             </span>
             <span className="text-sm font-medium text-slate-400 cs-mono">{time}</span>
             <div className="px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-full text-xs font-semibold text-blue-700 flex items-center gap-1.5">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
               Admin
             </div>
           </div>
@@ -352,7 +354,7 @@ export default function AdminDashboard() {
               onClick={simulateCitizenReport}
               className="bg-gradient-to-r from-violet-600 to-purple-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm shadow-purple-500/20 hover:shadow-md hover:shadow-purple-500/25 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
               Sim. Citizen Report
             </button>
 
@@ -361,15 +363,14 @@ export default function AdminDashboard() {
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
-                    filter === f
-                      ? f === "Critical"
-                        ? "bg-red-50 text-red-600 font-semibold"
-                        : f === "Resolved"
+                  className={`px-4 py-2.5 text-sm font-medium transition-all duration-200 ${filter === f
+                    ? f === "Critical"
+                      ? "bg-red-50 text-red-600 font-semibold"
+                      : f === "Resolved"
                         ? "bg-emerald-50 text-emerald-600 font-semibold"
                         : "bg-blue-50 text-blue-600 font-semibold"
-                      : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-                  } ${f !== "All" ? "border-l border-slate-100" : ""}`}
+                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                    } ${f !== "All" ? "border-l border-slate-100" : ""}`}
                 >
                   {f === "Critical" ? "🔴 " : f === "Resolved" ? "✅ " : ""}{f}
                 </button>
@@ -409,27 +410,45 @@ export default function AdminDashboard() {
 
             {/* DYNAMIC MEDIA PLAYER */}
             <div className="w-full h-full relative flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
-              <img
-                src={activeFeed.src}
-                alt={activeFeed.name}
-                className="absolute inset-0 w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
-                }}
-              />
-              <div className="hidden absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-800 flex-col items-center justify-center text-slate-500">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-3 text-blue-500/50"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                <p className="cs-mono text-sm">Awaiting {activeFeed.name}...</p>
-                <p className="cs-mono text-xs text-slate-600 mt-1">Signal Reconnecting...</p>
-              </div>
+              {isLocal ? (
+                <>
+                  <img
+                    src={activeFeed.streamSrc}
+                    alt={activeFeed.name}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  <div className="hidden absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-800 flex-col items-center justify-center text-slate-500">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-3 text-blue-500/50"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+                    <p className="cs-mono text-sm">Awaiting {activeFeed.name}...</p>
+                    <p className="cs-mono text-xs text-slate-600 mt-1">Signal Reconnecting...</p>
+                  </div>
+                </>
+              ) : (
+                <div className="absolute inset-0 w-full h-full">
+                  <video
+                    src={activeFeed.fallbackSrc}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-14 left-3 bg-emerald-600/90 backdrop-blur-sm text-white px-2 py-1 rounded text-[10px] font-bold animate-pulse z-30 shadow-md">
+                    ● AI Edge Node Processing
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* MAP PANEL */}
           <div className="cs-card p-4 relative">
             <h3 className="font-semibold text-sm mb-2 text-slate-700 flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-500"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-500"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" /><line x1="8" y1="2" x2="8" y2="18" /><line x1="16" y1="6" x2="16" y2="22" /></svg>
               Live Incident Map
             </h3>
             <div className="bg-blue-50/50 border border-blue-100/50 rounded-xl h-[370px] relative overflow-hidden">
@@ -508,7 +527,7 @@ export default function AdminDashboard() {
                       onClick={() => handleApprove(issue.id)}
                       className="w-full bg-gradient-to-r from-blue-700 to-sky-600 hover:from-blue-800 hover:to-sky-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition duration-200 flex items-center justify-center gap-1.5 shadow-sm"
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
                       Approve & Publish to Grid
                     </button>
                   </div>
@@ -529,7 +548,7 @@ export default function AdminDashboard() {
           {/* STATS CARD */}
           <div className="cs-card p-6 cs-accent-top">
             <div className="flex items-center gap-2 mb-1">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
               <p className="font-semibold text-sm text-slate-600">Critical Issues</p>
             </div>
             <h2 className="text-5xl font-extrabold mt-2 text-red-500">
@@ -545,7 +564,7 @@ export default function AdminDashboard() {
 
             <div className="mt-6 pt-6 border-t border-slate-100">
               <div className="flex items-center gap-2 mb-1">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
                 <p className="font-semibold text-sm text-slate-600">Total Resolved</p>
               </div>
               <h2 className="text-3xl font-extrabold mt-1 text-emerald-500">
@@ -557,7 +576,7 @@ export default function AdminDashboard() {
           {/* LIST OF ISSUES */}
           <div className="md:col-span-2 cs-card p-6">
             <h3 className="font-bold mb-4 text-slate-700 flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
               Recent Detections
             </h3>
             <div className="overflow-y-auto h-64 pr-2">
@@ -626,12 +645,12 @@ export default function AdminDashboard() {
                           onClick={() => handleResolve(d.id)}
                           className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 hover:shadow-sm flex items-center gap-1"
                         >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
                           Resolve
                         </button>
                       ) : (
                         <span className="text-emerald-500 text-xs font-bold border border-emerald-200 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
                           Done
                         </span>
                       )}
@@ -657,14 +676,14 @@ export default function AdminDashboard() {
 
             <div className="p-4 border-b border-slate-200/50 flex justify-between items-center">
               <h4 className="font-bold text-slate-800 capitalize flex items-center gap-2">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-500"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                 {previewImage.type} Sighting
               </h4>
               <button
                 onClick={() => setPreviewImage(null)}
                 className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-1.5 rounded-lg transition"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
             <div className="p-6 flex flex-col items-center">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://citypulse-1-bjum.onrender.com";
 
 export default function AdminReports() {
   const location = useLocation();

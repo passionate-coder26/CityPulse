@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://citypulse-1-bjum.onrender.com";
 
 export default function MyIssues() {
   const [issuesData, setIssuesData] = useState([]);
