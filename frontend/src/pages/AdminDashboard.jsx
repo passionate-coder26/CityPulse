@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 
-const API_BASE = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? "http://localhost:5000" : "https://citysenseai.onrender.com";
+const API_BASE = "http://localhost:5000";
 
 const getSLADetails = (detection) => {
   if (detection.status === "Resolved") return { breached: false, text: "Resolved" };
@@ -21,7 +21,7 @@ const getSLADetails = (detection) => {
   if (breached) {
     return { breached: true, text: "SLA BREACHED", hoursOver: Math.round(diffHours - limit) };
   } else {
-    return { breached: false, text: `⏳ ${remaining}h left`, remaining };
+    return { breached: false, text: `${remaining}h left`, remaining };
   }
 };
 
@@ -46,6 +46,7 @@ export default function AdminDashboard() {
 
   // ================= REAL BACKEND DATA STATE =================
   const [detections, setDetections] = useState([]);
+  const [pendingIssues, setPendingIssues] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // NEW: FILTER STATE
@@ -108,10 +109,25 @@ export default function AdminDashboard() {
     }
   };
 
+  // Fetch pending citizen reports awaiting verification
+  const fetchPendingDetections = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/detections?status=Pending_Verification`);
+      const data = await res.json();
+      setPendingIssues(data);
+    } catch (err) {
+      console.error("Pending fetch error:", err);
+    }
+  };
+
   // Poll for new data every 2 seconds
   useEffect(() => {
     fetchDetections();
-    const interval = setInterval(fetchDetections, 2000);
+    fetchPendingDetections();
+    const interval = setInterval(() => {
+      fetchDetections();
+      fetchPendingDetections();
+    }, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -135,6 +151,32 @@ export default function AdminDashboard() {
     }
   };
 
+  // ================= APPROVE FUNCTION =================
+  const handleApprove = async (id) => {
+    try {
+      // Optimistic UI Update
+      const approvedIssue = pendingIssues.find(p => p.id === id);
+      if (approvedIssue) {
+        setPendingIssues(prev => prev.filter(p => p.id !== id));
+        setDetections(prev => [
+          { ...approvedIssue, status: "Open" },
+          ...prev
+        ]);
+        
+        setLogs(prev => [...prev, `[System] Approved citizen sighting #${id} -> status changed to OPEN.`]);
+      }
+
+      await fetch(`${API_BASE}/api/detections/${id}/approve`, {
+        method: "PATCH",
+      });
+
+      fetchDetections();
+      fetchPendingDetections();
+    } catch (err) {
+      console.error("Error approving sighting:", err);
+    }
+  };
+
   // ================= CITIZEN REPORT SIMULATION =================
   const simulateCitizenReport = async () => {
     const citizenIssue = {
@@ -143,6 +185,7 @@ export default function AdminDashboard() {
       lat: 19.0760 + Math.random() * 0.01,
       lng: 72.8777 + Math.random() * 0.01,
       client_timestamp: new Date().toISOString(),
+      source: "citizen",
     };
 
     await fetch(`${API_BASE}/api/detections`, {
@@ -152,6 +195,7 @@ export default function AdminDashboard() {
     });
 
     fetchDetections();
+    fetchPendingDetections();
     alert("📲 Citizen Report Received!");
   };
 
@@ -227,37 +271,49 @@ export default function AdminDashboard() {
     }
   }, [logs]);
 
+  const severityColor = (sev, status) => {
+    if (status === "Resolved") return "bg-emerald-50 text-emerald-600 border-emerald-200";
+    if (sev === "Critical") return "bg-red-50 text-red-600 border-red-200";
+    if (sev === "High") return "bg-orange-50 text-orange-600 border-orange-200";
+    if (sev === "Medium") return "bg-amber-50 text-amber-600 border-amber-200";
+    return "bg-blue-50 text-blue-600 border-blue-200";
+  };
+
+  const dotColor = (sev, status) => {
+    if (status === "Resolved") return "bg-emerald-400";
+    if (sev === "Critical") return "bg-red-500 animate-pulse";
+    if (sev === "High") return "bg-orange-500";
+    if (sev === "Medium") return "bg-amber-400";
+    return "bg-blue-400";
+  };
+
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-[#f0f4f8] min-h-screen" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* ================= HEADER ================= */}
-      <header className="bg-white border-b shadow-sm sticky top-0 z-50">
+      <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto flex justify-between items-center py-3 px-6">
           {/* LEFT SIDE */}
           <div className="flex items-center gap-8">
-            <Link
-              to="/"
-              className="font-bold text-xl cursor-pointer text-blue-900 flex items-center gap-2"
-            >
-              🏙️ CitySense AI
+            <Link to="/" className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-700 to-sky-500 flex items-center justify-center shadow-sm">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+              </div>
+              <span className="font-extrabold text-lg tracking-tight">
+                <span className="text-blue-700">City</span><span className="text-sky-500">Sense</span> <span className="text-slate-400 font-medium text-xs">AI</span>
+              </span>
             </Link>
 
             <nav className="hidden md:flex gap-6 text-sm font-medium">
-              <Link
-                to="/admin/dashboard"
-                className="text-blue-600 border-b-2 border-blue-600 pb-4 -mb-4"
-              >
+              <Link to="/admin/dashboard" className="cs-nav-active pb-3.5 -mb-3.5">
                 Dashboard
               </Link>
-              <Link
-                to="/admin/reports"
-                className="text-gray-500 hover:text-blue-600 transition"
-              >
+              <Link to="/admin/reports" className="text-slate-400 hover:text-blue-600 transition-colors pb-3.5 -mb-3.5">
                 AI Reports
               </Link>
-              <Link
-                to="/admin/issues"
-                className="text-gray-500 hover:text-blue-600 transition"
-              >
+              <Link to="/admin/issues" className="text-slate-400 hover:text-blue-600 transition-colors pb-3.5 -mb-3.5">
                 Manage Issues
               </Link>
             </nav>
@@ -265,13 +321,14 @@ export default function AdminDashboard() {
 
           {/* RIGHT SIDE */}
           <div className="flex items-center gap-4">
-            <span className="hidden sm:flex items-center gap-2 text-xs font-mono bg-black text-green-400 px-2 py-1 rounded">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            <span className="hidden sm:flex items-center gap-2 text-xs font-semibold cs-mono bg-gradient-to-r from-blue-700 to-sky-600 text-white px-3 py-1.5 rounded-lg shadow-sm shadow-blue-500/20">
+              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
               SYSTEM ONLINE
             </span>
-            <span className="text-sm font-medium text-gray-500">{time}</span>
-            <div className="px-3 py-1 bg-gray-100 border rounded-full text-xs font-semibold text-gray-700">
-              👤 Admin
+            <span className="text-sm font-medium text-slate-400 cs-mono">{time}</span>
+            <div className="px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-full text-xs font-semibold text-blue-700 flex items-center gap-1.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Admin
             </div>
           </div>
         </div>
@@ -280,67 +337,62 @@ export default function AdminDashboard() {
       {/* ================= MAIN ================= */}
       <main className="max-w-7xl mx-auto px-6 mt-6">
         {/* HEADER & ACTIONS */}
-        <div className="flex justify-between items-end mb-4">
+        <div className="flex justify-between items-end mb-6 cs-animate-in">
           <div>
-            <h1 className="text-2xl font-bold">Admin Command Center</h1>
-            <p className="text-gray-600 text-sm">
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">
+              <span className="cs-gradient-text">Command Center</span>
+            </h1>
+            <p className="text-slate-400 text-sm mt-0.5">
               Real-time urban intelligence and issue management
             </p>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex gap-3">
             <button
               onClick={simulateCitizenReport}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow flex items-center gap-2"
+              className="bg-gradient-to-r from-violet-600 to-purple-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm shadow-purple-500/20 hover:shadow-md hover:shadow-purple-500/25 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
             >
-              📱 Sim. Citizen Report
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              Sim. Citizen Report
             </button>
 
-            <div className="flex bg-white rounded-lg border shadow-sm overflow-hidden">
-              <button
-                onClick={() => setFilter("All")}
-                className={`px-3 py-2 text-sm ${filter === "All" ? "bg-gray-100 font-bold" : "hover:bg-gray-50"
-                  }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setFilter("Critical")}
-                className={`px-3 py-2 text-sm text-red-600 border-l ${filter === "Critical" ? "bg-red-50 font-bold" : "hover:bg-red-50"
-                  }`}
-              >
-                Critical Only
-              </button>
-              <button
-                onClick={() => setFilter("Resolved")}
-                className={`px-3 py-2 text-sm text-green-600 border-l ${filter === "Resolved"
-                  ? "bg-green-50 font-bold"
-                  : "hover:bg-green-50"
-                  }`}
-              >
-                Resolved
-              </button>
+            <div className="flex bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              {["All", "Critical", "Resolved"].map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
+                    filter === f
+                      ? f === "Critical"
+                        ? "bg-red-50 text-red-600 font-semibold"
+                        : f === "Resolved"
+                        ? "bg-emerald-50 text-emerald-600 font-semibold"
+                        : "bg-blue-50 text-blue-600 font-semibold"
+                      : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                  } ${f !== "All" ? "border-l border-slate-100" : ""}`}
+                >
+                  {f === "Critical" ? "🔴 " : f === "Resolved" ? "✅ " : ""}{f}
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
         {/* ================= LIVE PATROL MODE ================= */}
-        <div className="grid grid-cols-2 gap-6 mt-6">
+        <div className="grid grid-cols-2 gap-6 mt-4 cs-animate-in" style={{ animationDelay: '100ms' }}>
           {/* REAL AI VIDEO PANEL */}
-          {/* ================= DYNAMIC MULTI-UNIT VIDEO PANEL ================= */}
-          <div className="bg-black rounded-xl h-[420px] relative overflow-hidden flex flex-col group border shadow-sm">
+          <div className="bg-slate-900 rounded-2xl h-[420px] relative overflow-hidden flex flex-col group border border-slate-700/50 shadow-lg cs-scanline">
 
             {/* OVERLAY CONTROLS (Badge & Dropdown) */}
             <div className="absolute top-3 left-3 right-3 z-20 flex justify-between items-start pointer-events-none">
-
-              <div className="text-white text-sm font-semibold bg-black/60 px-3 py-1.5 rounded backdrop-blur-sm border border-white/20 flex items-center gap-2 shadow-lg">
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              <div className="text-white text-xs font-semibold bg-red-500/90 px-3 py-1.5 rounded-lg backdrop-blur-sm flex items-center gap-2 shadow-lg cs-mono">
+                <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
                 LIVE FEED
               </div>
 
               {/* Feed Switcher Dropdown */}
               <select
-                className="bg-black/70 text-white text-sm font-medium px-3 py-1.5 rounded backdrop-blur-md border border-white/20 outline-none cursor-pointer hover:bg-black/80 transition pointer-events-auto shadow-lg"
+                className="bg-white/10 text-white text-xs font-medium px-3 py-1.5 rounded-lg backdrop-blur-md border border-white/20 outline-none cursor-pointer hover:bg-white/20 transition pointer-events-auto shadow-lg cs-mono"
                 value={activeFeed.id}
                 onChange={(e) => {
                   const selected = feedOptions.find(f => f.id === e.target.value);
@@ -348,7 +400,7 @@ export default function AdminDashboard() {
                 }}
               >
                 {feedOptions.map(feed => (
-                  <option key={feed.id} value={feed.id}>
+                  <option key={feed.id} value={feed.id} style={{ color: '#000' }}>
                     {feed.name}
                   </option>
                 ))}
@@ -356,7 +408,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* DYNAMIC MEDIA PLAYER */}
-            <div className="w-full h-full relative flex items-center justify-center bg-gray-900">
+            <div className="w-full h-full relative flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
               <img
                 src={activeFeed.src}
                 alt={activeFeed.name}
@@ -366,17 +418,21 @@ export default function AdminDashboard() {
                   e.target.nextSibling.style.display = 'flex';
                 }}
               />
-              <div className="hidden absolute inset-0 bg-gray-900 flex-col items-center justify-center text-gray-500">
-                <p className="text-4xl mb-2">📡</p>
-                <p>Waiting for {activeFeed.name} Connection...</p>
+              <div className="hidden absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-800 flex-col items-center justify-center text-slate-500">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-3 text-blue-500/50"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                <p className="cs-mono text-sm">Awaiting {activeFeed.name}...</p>
+                <p className="cs-mono text-xs text-slate-600 mt-1">Signal Reconnecting...</p>
               </div>
             </div>
           </div>
 
           {/* MAP PANEL */}
-          <div className="bg-white border rounded-xl p-4 relative">
-            <h3 className="font-semibold text-sm mb-2">Live Incident Map</h3>
-            <div className="bg-blue-50 border rounded-lg h-[380px] relative overflow-hidden">
+          <div className="cs-card p-4 relative">
+            <h3 className="font-semibold text-sm mb-2 text-slate-700 flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-500"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+              Live Incident Map
+            </h3>
+            <div className="bg-blue-50/50 border border-blue-100/50 rounded-xl h-[370px] relative overflow-hidden">
               <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
             </div>
           </div>
@@ -384,43 +440,128 @@ export default function AdminDashboard() {
 
         {/* ================= LIVE LOG TERMINAL ================= */}
         <div
-          className="bg-black text-green-400 rounded-xl p-4 font-mono h-40 mt-6 overflow-y-auto text-sm shadow-inner"
+          className="cs-terminal p-4 h-40 mt-6 overflow-y-auto text-sm shadow-lg cs-animate-in"
           ref={logRef}
+          style={{ animationDelay: '200ms' }}
         >
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-700/50">
+            <span className="w-3 h-3 rounded-full bg-red-500/80"></span>
+            <span className="w-3 h-3 rounded-full bg-amber-500/80"></span>
+            <span className="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+            <span className="text-xs text-slate-500 ml-2 cs-mono">system_log — CitySense AI v2.0</span>
+          </div>
           {logs.map((l, i) => (
-            <p key={i}>{l}</p>
+            <p key={i} className="cs-mono text-xs leading-6">
+              <span className="text-slate-500">$</span> {l}
+            </p>
           ))}
         </div>
 
+        {/* ================= PENDING CITIZEN VERIFICATIONS ================= */}
+        <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm mt-6 cs-animate-in" style={{ animationDelay: '250ms' }}>
+          <h3 className="font-extrabold text-slate-800 text-lg mb-1 flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse"></span>
+            Pending Citizen Verifications
+          </h3>
+          <p className="text-slate-400 text-xs mb-4">
+            Incoming citizen reports waiting for administrator review and publication to the live sector grid
+          </p>
+
+          {pendingIssues.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pendingIssues.map(issue => (
+                <div key={issue.id} className="border border-slate-200/60 rounded-xl overflow-hidden bg-slate-50/50 hover:bg-slate-50 transition-all duration-300 flex flex-col justify-between">
+                  <div>
+                    {issue.image_url ? (
+                      <div className="relative h-32 overflow-hidden border-b border-slate-200">
+                        <img
+                          src={issue.image_url}
+                          alt={issue.type}
+                          className="w-full h-full object-cover cursor-pointer hover:scale-105 transition duration-300"
+                          onClick={() => setPreviewImage(issue)}
+                          onError={(e) => { e.target.src = "https://via.placeholder.com/150?text=No+Img"; }}
+                        />
+                        <span className="absolute top-2 left-2 text-[10px] font-bold px-2.5 py-1 rounded-md bg-amber-500 text-white shadow-sm flex items-center gap-1 leading-none">
+                          🕒 PENDING
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="h-32 bg-slate-100 flex items-center justify-center border-b border-slate-200 text-xs text-slate-400 italic">
+                        No image evidence
+                      </div>
+                    )}
+                    <div className="p-4 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-bold text-slate-800 text-sm capitalize">{issue.type}</h4>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${severityColor(issue.severity, 'Pending')}`}>
+                          {issue.severity}
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-xs text-slate-500">
+                        <p className="flex items-center gap-1"><span className="text-blue-500">📍</span> <span className="font-mono text-[10px]">{parseFloat(issue.lat).toFixed(5)}, {parseFloat(issue.lng).toFixed(5)}</span></p>
+                        <p className="flex items-center gap-1"><span className="text-blue-500">⏰</span> <span>{new Date(issue.timestamp).toLocaleString()}</span></p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 pt-0">
+                    <button
+                      onClick={() => handleApprove(issue.id)}
+                      className="w-full bg-gradient-to-r from-blue-700 to-sky-600 hover:from-blue-800 hover:to-sky-700 text-white font-bold py-2 px-3 rounded-lg text-xs transition duration-200 flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      Approve & Publish to Grid
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="border border-dashed border-slate-200 rounded-xl p-8 text-center bg-slate-50/20">
+              <p className="text-slate-400 text-sm font-semibold flex items-center justify-center gap-2">
+                <span className="text-emerald-500">🎉</span> Zero pending verifications: Grid fully verified
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* ================= STATS & LIST ================= */}
-        <div className="grid md:grid-cols-3 gap-6 mt-6 pb-10">
+        <div className="grid md:grid-cols-3 gap-6 mt-6 pb-10 cs-animate-in" style={{ animationDelay: '300ms' }}>
           {/* STATS CARD */}
-          <div className="bg-white border rounded-xl p-5 shadow-sm h-fit">
-            <p className="font-semibold text-sm">Critical Issues</p>
-            <h2 className="text-5xl font-bold mt-2 text-red-600">
+          <div className="cs-card p-6 cs-accent-top">
+            <div className="flex items-center gap-2 mb-1">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <p className="font-semibold text-sm text-slate-600">Critical Issues</p>
+            </div>
+            <h2 className="text-5xl font-extrabold mt-2 text-red-500">
               {
                 detections.filter(
                   d => d.severity === "Critical" && d.status !== "Resolved"
                 ).length
               }
             </h2>
-            <p className="text-gray-500 text-xs mt-2">
+            <p className="text-slate-400 text-xs mt-2">
               Requiring immediate attention
             </p>
 
-            <div className="mt-6 pt-6 border-t">
-              <p className="font-semibold text-sm">Total Resolved</p>
-              <h2 className="text-3xl font-bold mt-1 text-green-600">
+            <div className="mt-6 pt-6 border-t border-slate-100">
+              <div className="flex items-center gap-2 mb-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <p className="font-semibold text-sm text-slate-600">Total Resolved</p>
+              </div>
+              <h2 className="text-3xl font-extrabold mt-1 text-emerald-500">
                 {detections.filter(d => d.status === "Resolved").length}
               </h2>
             </div>
           </div>
 
           {/* LIST OF ISSUES */}
-          <div className="md:col-span-2 bg-white border rounded-xl shadow-sm p-5">
-            <h3 className="font-bold mb-4">Recent Detections Management</h3>
+          <div className="md:col-span-2 cs-card p-6">
+            <h3 className="font-bold mb-4 text-slate-700 flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              Recent Detections
+            </h3>
             <div className="overflow-y-auto h-64 pr-2">
-              <ul>
+              <ul className="space-y-1">
                 {detections
                   .filter(d => {
                     if (filter === "All") return true;
@@ -430,7 +571,7 @@ export default function AdminDashboard() {
                   .map(d => (
                     <li
                       key={d.id}
-                      className={`border-b py-3 flex justify-between items-center ${d.status === "Resolved" ? "opacity-50" : ""
+                      className={`rounded-xl py-3 px-4 flex justify-between items-center transition-all duration-200 hover:bg-slate-50 ${d.status === "Resolved" ? "opacity-50" : ""
                         }`}
                     >
                       <div className="flex items-center gap-3">
@@ -438,25 +579,16 @@ export default function AdminDashboard() {
                           <img
                             src={d.image_url}
                             alt={d.type}
-                            className="w-12 h-12 object-cover rounded-lg border shadow-sm hover:scale-105 cursor-pointer transition duration-200"
+                            className="w-12 h-12 object-cover rounded-xl border border-slate-200 shadow-sm hover:scale-105 cursor-pointer transition duration-200"
                             onClick={() => setPreviewImage(d)}
                             onError={(e) => { e.target.src = "https://via.placeholder.com/150?text=No+Img"; }}
                           />
                         )}
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                              className={`w-2 h-2 rounded-full ${d.status === "Resolved"
-                                ? "bg-green-500"
-                                : d.severity === "Critical"
-                                  ? "bg-red-600 animate-pulse"
-                                  : d.severity === "High"
-                                    ? "bg-orange-500"
-                                    : "bg-yellow-400"
-                                }`}
-                            ></span>
-                            <span className="font-semibold capitalize">{d.type}</span>
-                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600 font-medium">
+                            <span className={`w-2 h-2 rounded-full ${dotColor(d.severity, d.status)}`}></span>
+                            <span className="font-semibold capitalize text-sm text-slate-700">{d.type}</span>
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${severityColor(d.severity, d.status)}`}>
                               {d.severity}
                             </span>
 
@@ -465,25 +597,25 @@ export default function AdminDashboard() {
                               const sla = getSLADetails(d);
                               if (d.status !== "Resolved") {
                                 return sla.breached ? (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-600 border border-red-200 shadow-[0_0_8px_rgba(239,68,68,0.4)] animate-pulse flex items-center gap-1">
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-red-50 text-red-600 border border-red-200 animate-pulse flex items-center gap-1">
                                     🚨 SLA BREACHED (+{sla.hoursOver}h)
                                   </span>
                                 ) : (
-                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1">
-                                    {sla.text}
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1 cs-mono">
+                                    ⏳ {sla.text}
                                   </span>
                                 );
                               }
                               return null;
                             })()}
 
-                            {/* Sightings/Voting Count Badge */}
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-50 text-purple-600 border border-purple-100 flex items-center gap-1">
-                              👁️ {d.detection_count || 1} sightings
+                            {/* Sightings Badge */}
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-violet-50 text-violet-600 border border-violet-100 flex items-center gap-1">
+                              👁️ {d.detection_count || 1}
                             </span>
                           </div>
 
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-slate-400 mt-1 cs-mono">
                             {new Date(d.timestamp).toLocaleTimeString()} • {parseFloat(d.lat).toFixed(4)}, {parseFloat(d.lng).toFixed(4)}
                           </p>
                         </div>
@@ -492,19 +624,21 @@ export default function AdminDashboard() {
                       {d.status !== "Resolved" ? (
                         <button
                           onClick={() => handleResolve(d.id)}
-                          className="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded text-sm font-medium transition"
+                          className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 hover:shadow-sm flex items-center gap-1"
                         >
-                          ✅ Mark Fixed
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          Resolve
                         </button>
                       ) : (
-                        <span className="text-green-600 text-sm font-bold border border-green-200 px-2 py-1 rounded">
-                          Resolved
+                        <span className="text-emerald-500 text-xs font-bold border border-emerald-200 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          Done
                         </span>
                       )}
                     </li>
                   ))}
                 {detections.length === 0 && (
-                  <p className="text-gray-400 text-center py-4">
+                  <p className="text-slate-400 text-center py-8 text-sm">
                     {loading ? "System Initializing..." : "No detections found."}
                   </p>
                 )}
@@ -514,35 +648,39 @@ export default function AdminDashboard() {
         </div>
       </main>
 
-      {/* ================= PREVIEW IMAGE MODAL (GLASSMORPHIC) ================= */}
+      {/* ================= PREVIEW IMAGE MODAL ================= */}
       {previewImage && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-all duration-300">
-          <div className="bg-white/80 border border-white/20 backdrop-blur-xl rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl relative">
-            <div className="p-4 border-b flex justify-between items-center bg-gray-50/50">
-              <h4 className="font-bold text-gray-800 capitalize">{previewImage.type} Sighting</h4>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setPreviewImage(null)}>
+          <div className="cs-glass border border-white/40 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl relative cs-animate-in" onClick={e => e.stopPropagation()}>
+            {/* Top gradient accent */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-sky-500 to-blue-600"></div>
+
+            <div className="p-4 border-b border-slate-200/50 flex justify-between items-center">
+              <h4 className="font-bold text-slate-800 capitalize flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                {previewImage.type} Sighting
+              </h4>
               <button
                 onClick={() => setPreviewImage(null)}
-                className="text-gray-500 hover:text-black hover:bg-gray-200 p-1.5 rounded-full transition"
+                className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-1.5 rounded-lg transition"
               >
-                ✕
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             <div className="p-6 flex flex-col items-center">
               <img
                 src={previewImage.image_url}
                 alt={previewImage.type}
-                className="w-full h-64 object-cover rounded-xl shadow-inner border"
+                className="w-full h-64 object-cover rounded-xl shadow-md border border-slate-200"
                 onError={(e) => { e.target.src = "https://via.placeholder.com/400x250?text=No+Image+Evidence"; }}
               />
-              <div className="mt-4 w-full text-left space-y-2 text-sm text-gray-600">
-                <p>📍 <b>Coordinates:</b> {previewImage.lat}, {previewImage.lng}</p>
-                <p>⏰ <b>Reported:</b> {new Date(previewImage.timestamp).toLocaleString()}</p>
-                <p>👁️ <b>Total Sightings:</b> {previewImage.detection_count || 1}</p>
-                <p>⚠️ <b>Severity:</b> <span className={`px-2 py-0.5 rounded font-semibold text-xs ${previewImage.severity === 'Critical' ? 'bg-red-100 text-red-700' :
-                  previewImage.severity === 'High' ? 'bg-orange-100 text-orange-700' :
-                    previewImage.severity === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-blue-100 text-blue-700'
-                  }`}>{previewImage.severity}</span></p>
+              <div className="mt-4 w-full text-left space-y-2 text-sm text-slate-500">
+                <p className="flex items-center gap-2"><span className="text-blue-500">📍</span> <b className="text-slate-700">Coordinates:</b> <span className="cs-mono text-xs">{previewImage.lat}, {previewImage.lng}</span></p>
+                <p className="flex items-center gap-2"><span className="text-blue-500">⏰</span> <b className="text-slate-700">Reported:</b> {new Date(previewImage.timestamp).toLocaleString()}</p>
+                <p className="flex items-center gap-2"><span className="text-blue-500">👁️</span> <b className="text-slate-700">Sightings:</b> {previewImage.detection_count || 1}</p>
+                <p className="flex items-center gap-2"><span className="text-blue-500">⚠️</span> <b className="text-slate-700">Severity:</b>
+                  <span className={`px-2 py-0.5 rounded-md font-semibold text-xs border ${severityColor(previewImage.severity, previewImage.status)}`}>{previewImage.severity}</span>
+                </p>
               </div>
             </div>
           </div>

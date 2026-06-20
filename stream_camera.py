@@ -70,7 +70,8 @@ def generate_frames(stream_id):
                 "lat": config["lat"], "lng": config["lng"],
                 "confidence": round(highest_conf, 2),
                 "client_timestamp": datetime.datetime.now().isoformat(),
-                "image_url": f"https://via.placeholder.com/150?text={config['type']}+Cam"
+                "image_url": f"https://via.placeholder.com/150?text={config['type']}+Cam",
+                "source": "python_streamer"
             }
             try:
                 requests.post(BACKEND_URL, json=payload, timeout=2)

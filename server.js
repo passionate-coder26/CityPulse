@@ -17,7 +17,7 @@ app.use(express.json({ limit: '10mb' }));
 
 // ================= 1. MONGODB CONNECTION =================
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("☁️ Connected to MongoDB Atlas Cloud Database!"))
+  .then(() => console.log("Connected to MongoDB Atlas Cloud Database!"))
   .catch(err => console.error("MongoDB Connection Error:", err));
 
 // ================= 2. DATABASE SCHEMA =================
@@ -33,8 +33,6 @@ const detectionSchema = new mongoose.Schema({
     confidence: Number
 });
 
-// VERY IMPORTANT FOR REACT: MongoDB uses '_id', but your React app looks for 'id'. 
-// This cleanly maps the database ID to match what your frontend expects.
 detectionSchema.set('toJSON', {
     virtuals: true,
     transform: (doc, ret) => {
@@ -63,8 +61,20 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 // GET: Fetch All Detections
 app.get('/api/detections', async (req, res) => {
     try {
+        const { status, include_pending } = req.query;
+        let query = {};
+        
+        if (status) {
+            query.status = status;
+        } else if (include_pending === 'true') {
+            query = {};
+        } else {
+            // Filter out 'Pending_Verification' items by default so they do not appear on the map until approved
+            query.status = { $ne: 'Pending_Verification' };
+        }
+
         // Fetch from MongoDB, sort newest first, limit to keep map fast
-        const data = await Detection.find().sort({ timestamp: -1 }).limit(100);
+        const data = await Detection.find(query).sort({ timestamp: -1 }).limit(100);
         res.json(data);
     } catch (err) {
         console.error("Fetch error:", err);
@@ -74,10 +84,10 @@ app.get('/api/detections', async (req, res) => {
 
 // POST: Receive Live Data from Python (Intelligent Clustering)
 app.post('/api/detections', async (req, res) => {
-    const { type, lat, lng, severity, image_url, client_timestamp, confidence } = req.body;
+    const { type, lat, lng, severity, image_url, client_timestamp, confidence, source } = req.body;
     const detectionTime = client_timestamp || new Date();
     
-    console.log(`📸 Received: ${type} (${severity}) at lat: ${lat}, lng: ${lng}`);
+    console.log(`📸 Received: ${type} (${severity}) from source: ${source || 'automated'} at lat: ${lat}, lng: ${lng}`);
 
     try {
         // Find active issues for clustering
@@ -112,12 +122,13 @@ app.post('/api/detections', async (req, res) => {
 
         } else {
             // Create brand new record in MongoDB
+            // Source 'citizen' defaults to 'Pending_Verification'. Others (python_streamer, automated) default to 'Open'.
             const newIssue = new Detection({
                 type,
                 severity: severity || 'Medium',
                 lat: parseFloat(lat),
                 lng: parseFloat(lng),
-                status: 'Open',
+                status: source === 'citizen' ? 'Pending_Verification' : 'Open',
                 detection_count: 1,
                 timestamp: detectionTime,
                 image_url: image_url || 'https://via.placeholder.com/150?text=Live+Detection',
@@ -125,7 +136,7 @@ app.post('/api/detections', async (req, res) => {
             });
 
             const savedIssue = await newIssue.save();
-            console.log(`🆕 [New Issue DB] Created ${newIssue.type} with severity ${newIssue.severity}`);
+            console.log(`🆕 [New Issue DB] Created ${newIssue.type} with status ${newIssue.status} and severity ${newIssue.severity}`);
             res.json({ success: true, id: savedIssue._id, clustered: false });
         }
     } catch (err) {
@@ -152,6 +163,23 @@ app.patch('/api/detections/:id/resolve', async (req, res) => {
     }
 });
 
+// PATCH: Approve Pending Sighting (Admin Route)
+app.patch('/api/detections/:id/approve', async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const approvedIssue = await Detection.findByIdAndUpdate(id, { 
+            status: 'Open' 
+        }, { new: true });
+        
+        console.log(`✅ Sighting ${id} APPROVED and marked as Open.`);
+        res.json({ success: true, issue: approvedIssue });
+    } catch (err) {
+        console.error("Approve Error:", err);
+        res.status(500).json({ error: "Failed to approve sighting" });
+    }
+});
+
 // POST: Generate Gemini Report
 app.post('/api/generate-report', async (req, res) => {
     try {
@@ -175,12 +203,29 @@ app.post('/api/generate-report', async (req, res) => {
         res.status(500).json({ error: "AI Service Unavailable" });
     }
 });
+const fs = require('fs');
+const path = require('path');
 
 const server = app.listen(PORT, () => {
     console.log(`🚀 CitySense Backend running on port ${PORT}`);
     
+    // Dynamically locate the python executable in venv
+    let pythonCmd = 'python';
+    const windowsVenvPath = path.join(__dirname, 'venv', 'Scripts', 'python.exe');
+    const unixVenvPath = path.join(__dirname, 'venv', 'bin', 'python');
+
+    if (fs.existsSync(windowsVenvPath)) {
+        pythonCmd = windowsVenvPath;
+        console.log(`🐍 Spawning python from Windows virtual environment: ${pythonCmd}`);
+    } else if (fs.existsSync(unixVenvPath)) {
+        pythonCmd = unixVenvPath;
+        console.log(`🐍 Spawning python from Unix/Linux virtual environment: ${pythonCmd}`);
+    } else {
+        console.log(`⚠️ Virtual environment python not found, falling back to global: ${pythonCmd}`);
+    }
+
     // Spawn the Python streamer
-    const pythonProcess = spawn('python', ['stream_camera.py']);
+    const pythonProcess = spawn(pythonCmd, ['stream_camera.py']);
 
     pythonProcess.stdout.on('data', (data) => {
         console.log(`[Python Streamer]: ${data}`);
