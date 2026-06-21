@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PredictiveMaintenanceWidget from "../components/PredictiveMaintenanceWidget";
 import { Link, useLocation } from "react-router-dom";
 
 const API_BASE = "https://citypulse-1-bjum.onrender.com";
@@ -278,6 +279,11 @@ export default function AdminReports() {
               </ul>
             </div>
           )}
+        </div>
+
+        {/* ================= PREDICTIVE MAINTENANCE SCANNER ================= */}
+        <div className="mt-6">
+          <PredictiveMaintenanceWidget />
         </div>
 
         {/* CHARTS CONTAINER */}

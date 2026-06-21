@@ -13,12 +13,12 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 app.use(cors());
-app.use(express.json({ limit: '10mb' })); 
+app.use(express.json({ limit: '10mb' }));
 
 // ================= 1. MONGODB CONNECTION =================
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("Connected to MongoDB Atlas Cloud Database!"))
-  .catch(err => console.error("MongoDB Connection Error:", err));
+    .then(() => console.log("Connected to MongoDB Atlas Cloud Database!"))
+    .catch(err => console.error("MongoDB Connection Error:", err));
 
 // ================= 2. DATABASE SCHEMA =================
 const detectionSchema = new mongoose.Schema({
@@ -46,10 +46,10 @@ const Detection = mongoose.model('Detection', detectionSchema);
 
 // Helper: Haversine distance formula (returns distance in meters)
 const getDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371000; 
+    const R = 6371000;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
+    const a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
@@ -63,7 +63,7 @@ app.get('/api/detections', async (req, res) => {
     try {
         const { status, include_pending } = req.query;
         let query = {};
-        
+
         if (status) {
             query.status = status;
         } else if (include_pending === 'true') {
@@ -86,17 +86,17 @@ app.get('/api/detections', async (req, res) => {
 app.post('/api/detections', async (req, res) => {
     const { type, lat, lng, severity, image_url, client_timestamp, confidence, source } = req.body;
     const detectionTime = client_timestamp || new Date();
-    
+
     console.log(`📸 Received: ${type} (${severity}) from source: ${source || 'automated'} at lat: ${lat}, lng: ${lng}`);
 
     try {
         // Find active issues for clustering
         const activeIssues = await Detection.find({ status: { $ne: 'Resolved' } });
-        
+
         let clusteredIssue = null;
         if (lat && lng) {
-            clusteredIssue = activeIssues.find(d => 
-                d.type.toLowerCase() === type.toLowerCase() && 
+            clusteredIssue = activeIssues.find(d =>
+                d.type.toLowerCase() === type.toLowerCase() &&
                 getDistance(d.lat, d.lng, parseFloat(lat), parseFloat(lng)) <= 10
             );
         }
@@ -104,7 +104,7 @@ app.post('/api/detections', async (req, res) => {
         if (clusteredIssue) {
             let newCount = (clusteredIssue.detection_count || 1) + 1;
             let newSeverity = clusteredIssue.severity;
-            
+
             // Dynamic Severity Upgrades
             if (newCount >= 10) newSeverity = 'Critical';
             else if (newCount >= 3) newSeverity = 'High';
@@ -116,7 +116,7 @@ app.post('/api/detections', async (req, res) => {
                 timestamp: detectionTime,
                 image_url: image_url || clusteredIssue.image_url
             });
-            
+
             console.log(`♻️ [Clustered DB] Incremented sightings for ${type} to ${newCount}. New Severity: ${newSeverity}`);
             res.json({ success: true, id: clusteredIssue._id, clustered: true });
 
@@ -148,13 +148,13 @@ app.post('/api/detections', async (req, res) => {
 // PATCH: Mark Issue as Resolved
 app.patch('/api/detections/:id/resolve', async (req, res) => {
     const { id } = req.params;
-    
+
     try {
-        await Detection.findByIdAndUpdate(id, { 
-            status: 'Resolved', 
-            severity: 'Low' 
+        await Detection.findByIdAndUpdate(id, {
+            status: 'Resolved',
+            severity: 'Low'
         });
-        
+
         console.log(`✅ Issue ${id} marked as RESOLVED in Database.`);
         res.json({ success: true });
     } catch (err) {
@@ -166,12 +166,12 @@ app.patch('/api/detections/:id/resolve', async (req, res) => {
 // PATCH: Approve Pending Sighting (Admin Route)
 app.patch('/api/detections/:id/approve', async (req, res) => {
     const { id } = req.params;
-    
+
     try {
-        const approvedIssue = await Detection.findByIdAndUpdate(id, { 
-            status: 'Open' 
+        const approvedIssue = await Detection.findByIdAndUpdate(id, {
+            status: 'Open'
         }, { new: true });
-        
+
         console.log(`✅ Sighting ${id} APPROVED and marked as Open.`);
         res.json({ success: true, issue: approvedIssue });
     } catch (err) {
@@ -180,12 +180,88 @@ app.patch('/api/detections/:id/approve', async (req, res) => {
     }
 });
 
+// ========================================================
+// 5. SILENT INFRASTRUCTURE FAILURE DETECTOR (PREDICTIVE AI)
+// ========================================================
+app.get('/api/infrastructure/anomalies', async (req, res) => {
+    try {
+        // In production, this would query a MongoDB collection of your city assets.
+        // For the presentation demo, we use live-calculated time-series telemetry:
+        const currentTimestamp = Date.now();
+
+        const infrastructureAssets = [
+            {
+                id: "CCTV-DOWNTOWN-12",
+                type: "Traffic CCTV Node",
+                sector: "Downtown",
+                last_ping: currentTimestamp - (1000 * 60 * 4), // 4 mins ago
+                expected_interval_mins: 5
+            },
+            {
+                id: "SL-NORTH-Q-44",
+                type: "Smart Streetlight",
+                sector: "North Quarter",
+                last_ping: currentTimestamp - (1000 * 60 * 48), // 48 mins ago (Missed 3+ pings)
+                expected_interval_mins: 15
+            },
+            {
+                id: "SOS-WEST-09",
+                type: "Emergency Call Box",
+                sector: "West Side",
+                last_ping: currentTimestamp - (1000 * 60 * 60 * 7), // 7 hours ago (Missed severely)
+                expected_interval_mins: 60
+            },
+            {
+                id: "SL-EAST-102",
+                type: "Smart Streetlight",
+                sector: "East District",
+                last_ping: currentTimestamp - (1000 * 60 * 11), // 11 mins ago
+                expected_interval_mins: 15
+            }
+        ];
+
+        // Process heartbeats and run anomaly detection logic
+        const detectedAnomalies = infrastructureAssets.map(asset => {
+            const minutesOffline = Math.round((currentTimestamp - asset.last_ping) / (1000 * 60));
+            const missedHeartbeats = Math.floor(minutesOffline / asset.expected_interval_mins);
+
+            let riskStatus = "Optimal";
+            let failureProbability = 0;
+
+            // Anomaly logic: If a device misses more than 2 consecutive pings, flag it
+            if (missedHeartbeats >= 2) {
+                riskStatus = missedHeartbeats >= 5 ? "Critical Failure" : "Suspected Anomaly";
+                // Exponential risk curve scaling up to 99%
+                failureProbability = Math.min(Math.round((missedHeartbeats / 6) * 100), 99);
+            }
+
+            return {
+                id: asset.id,
+                type: asset.type,
+                sector: asset.sector,
+                minutesOffline,
+                missedHeartbeats,
+                riskStatus,
+                failureProbability
+            };
+        }).filter(asset => asset.failureProbability > 0); // Only return flagged assets to dashboard
+
+        // Sort by highest risk priority
+        detectedAnomalies.sort((a, b) => b.failureProbability - a.failureProbability);
+
+        res.json(detectedAnomalies);
+    } catch (err) {
+        console.error("Anomaly route error:", err);
+        res.status(500).json({ error: "Predictive engine runtime failure" });
+    }
+});
+
 // POST: Generate Gemini Report
 app.post('/api/generate-report', async (req, res) => {
     try {
         // Fetch only active issues for the AI to analyze
         const activeIssues = await Detection.find({ status: { $ne: 'Resolved' } }).limit(15);
-        
+
         console.log("🤖 Generating report for", activeIssues.length, "active issues...");
 
         const prompt = `
@@ -208,7 +284,7 @@ const path = require('path');
 
 const server = app.listen(PORT, () => {
     console.log(`🚀 CitySense Backend running on port ${PORT}`);
-    
+
     // Dynamically locate the python executable in venv
     let pythonCmd = 'python';
     const windowsVenvPath = path.join(__dirname, 'venv', 'Scripts', 'python.exe');
