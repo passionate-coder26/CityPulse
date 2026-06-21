@@ -147,7 +147,7 @@ export default function App() {
                   {[
                     { icon: "📡", title: "Data Collection", desc: "Passive ingestion from street cameras & IoT sensors across the city grid.", color: "from-blue-500 to-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
                     { icon: "🧠", title: "AI Insights", desc: "Vision AI detects potholes, garbage, streetlight failures & more.", color: "from-violet-500 to-purple-600", bg: "bg-violet-50", border: "border-violet-100" },
-                    { icon: "📊", title: "Prediction", desc: "Risk scoring and trend analysis predicts failures before they escalate.", color: "from-amber-500 to-orange-500", bg: "bg-amber-50", border: "border-amber-100" },
+                    { icon: "📊", title: "Predictive IoT Maintenance", desc: "Monitors hardware heartbeats to detect silent infrastructure failures before citizens even notice.", color: "from-amber-500 to-orange-500", bg: "bg-amber-50", border: "border-amber-100" },
                     { icon: "⚡", title: "Action", desc: "Smart dashboards auto-trigger maintenance crews & resource allocation.", color: "from-emerald-500 to-teal-500", bg: "bg-emerald-50", border: "border-emerald-100" },
                   ].map((item, i) => (
                     <div key={i} className={`cs-card p-6 relative overflow-hidden group cursor-default cs-animate-in`}>
