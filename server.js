@@ -259,8 +259,10 @@ app.get('/api/infrastructure/anomalies', async (req, res) => {
 // POST: Generate Gemini Report
 app.post('/api/generate-report', async (req, res) => {
     try {
-        // Fetch only active issues for the AI to analyze
-        const activeIssues = await Detection.find({ status: { $ne: 'Resolved' } }).limit(15);
+        const activeIssues = await Detection.find({ status: { $ne: 'Resolved' } })
+            .select('-image_url')
+            .lean()
+            .limit(15);
 
         console.log("🤖 Generating report for", activeIssues.length, "active issues...");
 
@@ -274,11 +276,14 @@ app.post('/api/generate-report', async (req, res) => {
 
         const result = await model.generateContent(prompt);
         res.json({ report: result.response.text() });
+        
     } catch (error) {
+
         console.error("Gemini Error:", error);
         res.status(500).json({ error: "AI Service Unavailable" });
     }
 });
+
 const fs = require('fs');
 const path = require('path');
 
