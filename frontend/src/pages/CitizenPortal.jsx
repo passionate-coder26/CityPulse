@@ -266,7 +266,7 @@ export default function CitizenPortal() {
               </svg>
             </div>
             <span className="font-extrabold text-lg tracking-tight text-slate-800">
-              City<span className="text-blue-600">Sense</span> <span className="text-slate-400 font-medium text-xs">Citizen</span>
+              City<span className="text-blue-600">Pulse</span> <span className="text-slate-400 font-medium text-xs">Citizen</span>
             </span>
           </Link>
 

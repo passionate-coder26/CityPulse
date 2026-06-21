@@ -283,7 +283,7 @@ const fs = require('fs');
 const path = require('path');
 
 const server = app.listen(PORT, () => {
-    console.log(`🚀 CitySense Backend running on port ${PORT}`);
+    console.log(`🚀 CityPulse Backend running on port ${PORT}`);
 
     // Dynamically locate the python executable in venv
     let pythonCmd = 'python';

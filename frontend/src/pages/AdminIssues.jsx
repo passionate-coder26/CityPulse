@@ -99,7 +99,7 @@ export default function AdminIssues() {
               </svg>
             </div>
             <span className="font-extrabold text-lg tracking-tight">
-              <span className="text-blue-700">City</span><span className="text-sky-500">Sense</span> <span className="text-slate-400 font-medium text-xs">AI</span>
+              <span className="text-blue-700">City</span><span className="text-sky-500">Pulse</span> <span className="text-slate-400 font-medium text-xs">AI</span>
             </span>
           </Link>
 

@@ -28,7 +28,7 @@ export default function App() {
                     </svg>
                   </div>
                   <span className="text-xl font-extrabold tracking-tight">
-                    <span className="text-blue-700">City</span><span className="text-sky-500">Sense</span> <span className="text-slate-400 font-medium text-sm">AI</span>
+                    <span className="text-blue-700">City</span><span className="text-sky-500">Pulse</span> <span className="text-slate-400 font-medium text-sm">AI</span>
                   </span>
                 </Link>
 
@@ -67,7 +67,7 @@ export default function App() {
                 </h2>
 
                 <p className="mt-6 max-w-xl text-slate-500 text-lg leading-relaxed">
-                  <span className="font-semibold text-slate-700">CitySense AI</span> scans urban environments using
+                  <span className="font-semibold text-slate-700">CityPulse AI</span> scans urban environments using
                   <span className="font-semibold text-blue-600"> smart sensors</span> and
                   <span className="font-semibold text-blue-600"> AI vision</span> to detect hidden, unreported, and early-stage
                   civic issues <span className="font-semibold text-slate-700">before they escalate.</span>
@@ -136,7 +136,7 @@ export default function App() {
                     PLATFORM
                   </span>
                   <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight">
-                    How <span className="cs-gradient-text">CitySense AI</span> Works
+                    How <span className="cs-gradient-text">CityPulse AI</span> Works
                   </h2>
                   <p className="text-slate-500 mt-3 max-w-lg mx-auto">
                     Four powerful layers working together to transform urban governance
@@ -174,7 +174,7 @@ export default function App() {
                       <circle cx="12" cy="10" r="3"/>
                     </svg>
                   </div>
-                  <h3 className="text-lg font-bold text-white">CitySense AI</h3>
+                  <h3 className="text-lg font-bold text-white">CityPulse AI</h3>
                 </div>
                 <p className="text-sm text-slate-500">Smarter cities through predictive intelligence.</p>
                 <div className="flex items-center justify-center gap-6 mt-6 text-xs text-slate-600">
@@ -182,7 +182,7 @@ export default function App() {
                   <Link to="/admin" className="hover:text-blue-400 transition-colors">Admin Portal</Link>
                   <Link to="/scanner" className="hover:text-blue-400 transition-colors">AR Scanner</Link>
                 </div>
-                <p className="text-slate-600 text-xs mt-6">© 2025 CitySense AI — All Rights Reserved</p>
+                <p className="text-slate-600 text-xs mt-6">© 2026 CityPulse AI — All Rights Reserved</p>
               </div>
             </footer>
           </div>

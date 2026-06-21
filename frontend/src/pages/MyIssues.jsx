@@ -102,7 +102,7 @@ export default function MyIssues() {
               </svg>
             </div>
             <span className="font-extrabold text-lg tracking-tight text-slate-800">
-              City<span className="text-blue-600">Sense</span> <span className="text-slate-400 font-medium text-xs">Citizen</span>
+              City<span className="text-blue-600">Pulse</span> <span className="text-slate-400 font-medium text-xs">Citizen</span>
             </span>
           </Link>
 
@@ -338,7 +338,7 @@ export default function MyIssues() {
       </main>
 
       <p className="text-center text-slate-400 font-semibold text-xs mt-12 mb-8">
-        © 2026 CitySense AI — Smarter Urban Security
+        © 2026 CityPulse AI — Smarter Urban Security
       </p>
     </div>
   );

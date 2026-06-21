@@ -22,7 +22,7 @@ export default function AdminLogin() {
               </svg>
             </div>
             <span className="text-lg font-extrabold tracking-tight">
-              <span className="text-blue-700">City</span><span className="text-sky-500">Sense</span> <span className="text-slate-400 font-medium text-xs">AI</span>
+              <span className="text-blue-700">City</span><span className="text-sky-500">Pulse</span> <span className="text-slate-400 font-medium text-xs">AI</span>
             </span>
           </Link>
         </div>
@@ -50,7 +50,7 @@ export default function AdminLogin() {
 
             <h2 className="text-center text-2xl font-extrabold tracking-tight text-slate-800">Admin Portal</h2>
             <p className="text-center text-slate-400 text-sm mt-1">
-              Secure access to CitySense AI management console
+              Secure access to CityPulse AI management console
             </p>
 
             {/* FORM */}
@@ -62,7 +62,7 @@ export default function AdminLogin() {
                 </label>
                 <input
                   type="email"
-                  placeholder="admin@citysense.ai"
+                  placeholder="admin@citypulse.ai"
                   className="cs-input w-full px-4 py-3 mt-1.5 text-sm"
                 />
               </div>

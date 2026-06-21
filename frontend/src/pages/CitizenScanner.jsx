@@ -178,7 +178,7 @@ export default function CitizenScanner() {
               </svg>
             </div>
             <span className="font-extrabold text-sm tracking-tight text-slate-800">
-              City<span className="text-blue-600">Sense</span> <span className="text-slate-400 font-medium text-[10px]">Scanner</span>
+              City<span className="text-blue-600">Pulse</span> <span className="text-slate-400 font-medium text-[10px]">Scanner</span>
             </span>
           </div>
 

@@ -38,7 +38,7 @@ export default function AdminDashboard() {
 
   // ================= LIVE LOGS =================
   const [logs, setLogs] = useState([
-    "[System] Initializing CitySense AI...",
+    "[System] Initializing CityPulse AI...",
     "[System] Connected to Backend API...",
   ]);
   const logRef = useRef(null);
@@ -304,7 +304,7 @@ export default function AdminDashboard() {
                 </svg>
               </div>
               <span className="font-extrabold text-lg tracking-tight">
-                <span className="text-blue-700">City</span><span className="text-sky-500">Sense</span> <span className="text-slate-400 font-medium text-xs">AI</span>
+                <span className="text-blue-700">City</span><span className="text-sky-500">Pulse</span> <span className="text-slate-400 font-medium text-xs">AI</span>
               </span>
             </Link>
 
@@ -467,7 +467,7 @@ export default function AdminDashboard() {
             <span className="w-3 h-3 rounded-full bg-red-500/80"></span>
             <span className="w-3 h-3 rounded-full bg-amber-500/80"></span>
             <span className="w-3 h-3 rounded-full bg-emerald-500/80"></span>
-            <span className="text-xs text-slate-500 ml-2 cs-mono">system_log — CitySense AI v2.0</span>
+            <span className="text-xs text-slate-500 ml-2 cs-mono">system_log — CityPulse AI v2.0</span>
           </div>
           {logs.map((l, i) => (
             <p key={i} className="cs-mono text-xs leading-6">
