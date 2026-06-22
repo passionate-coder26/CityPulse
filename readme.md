@@ -5,7 +5,8 @@
 This backend handles real-time data ingestion from Edge AI nodes (Python/TensorFlow) and Citizen Apps, stores telemetry in the cloud, and utilizes **Google Gemini 2.5 Flash** to generate autonomous, proactive maintenance reports.
 
 ## ✅ System Status: 🟢 CLOUD PRODUCTION ACTIVE
-- **Live Server URL:** `https://citypulse-1-bjum.onrender.com`
+- **Live Web App (Frontend):** `https://city-pulse-ivory-kappa.vercel.app/`
+- **Live API Server (Backend):** `https://citypulse-1-bjum.onrender.com`
 - **Database:** MongoDB Atlas (Cloud NoSQL)
 - **AI Service:** Google Gemini 2.5 Flash
 - **Local Dev Port:** `5000`
